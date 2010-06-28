@@ -57,7 +57,7 @@ myNumlockMask   = mod2Mask
 --
 -- > workspaces = ["web", "irc", "code" ] ++ map show [4..9]
 --
-myWorkspaces    = ["1:code","2:web","3:msg","4:vm","5:media","6","7","8","9"]
+myWorkspaces    = ["1:im","2:web","3:code","4","5","6","7","8","9", "10", "11", "12"]
  
 -- Border colors for unfocused and focused windows, respectively.
 --
@@ -145,7 +145,7 @@ myKeys conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $
     -- mod-shift-[1..9], Move client to workspace N
     --
     [((m .|. modMask, k), windows $ f i)
-        | (i, k) <- zip (XMonad.workspaces conf) [xK_1 .. xK_9]
+        | (i, k) <- zip (XMonad.workspaces conf) [xK_F1 .. xK_F12]
         , (f, m) <- [(W.greedyView, 0), (W.shift, shiftMask)]]
     ++
  
