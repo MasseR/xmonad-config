@@ -70,7 +70,7 @@ myFocusedBorderColor = "#ffb6b0"
 myKeys conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $
  
     -- launch a terminal
-    [ ((modMask .|. shiftMask, xK_Return), spawn $ XMonad.terminal conf)
+    [ ((modMask, xK_Return), spawn $ XMonad.terminal conf)
 
     -- launch gmrun
     , ((modMask .|. controlMask, xK_l     ), spawn "xscreensaver-command -lock")
@@ -106,7 +106,7 @@ myKeys conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $
     , ((modMask,               xK_m     ), windows W.focusMaster  )
  
     -- Swap the focused window and the master window
-    , ((modMask,               xK_Return), windows W.swapMaster)
+    , ((shiftMask .|. modMask,               xK_Return), windows W.swapMaster)
  
     -- Swap the focused window with the next window
     , ((modMask .|. shiftMask, xK_j     ), windows W.swapDown  )
