@@ -5,17 +5,50 @@
 import System.IO
 import System.Exit
 import XMonad
+import XMonad.Hooks.UrgencyHook
 import XMonad.Hooks.DynamicLog
 import XMonad.Hooks.ManageDocks
 import XMonad.Hooks.SetWMName
 import XMonad.Layout.NoBorders
 import XMonad.Layout.Spiral
 import XMonad.Layout.Tabbed
-import XMonad.Util.Run(spawnPipe)
+import XMonad.Layout.PerWorkspace
+import XMonad.Util.Run(spawnPipe, safeSpawn)
 import XMonad.Util.EZConfig(additionalKeys)
+import XMonad.Util.NamedWindows
+import XMonad.Prompt
+import XMonad.Prompt.Input
 
 import qualified XMonad.StackSet as W
 import qualified Data.Map        as M
+
+-- Zenburn colors from http://github.com/davidbeckingsale/xmonad-config/blob/master/xmonad.hs
+-- Main Colours
+myFgColor = "#DCDCCC"
+myBgColor = "#3f3f3f"
+myHighlightedFgColor = "#DCDCCC"
+myHighlightedBgColor = "#7F9F7F"
+myInactiveFgColor = "#333333"
+
+--- Borders
+myActiveBorderColor = myHighlightedBgColor
+myInactiveBorderColor = "#262626"
+myBorderWidth = 2
+
+--- Urgency
+myUrgencyHintFgColor = "#333333"
+myUrgencyHintBgColor = "#F18C96"
+
+myFont = "xft:Inconsolata-9"
+
+scrot = "scrot"
+scrotWindow = scrot ++ " -s"
+
+fPrintScreen :: String -> String -> X ()
+fPrintScreen s f = spawn $ s ++ " $HOME/.screenshot/" ++ f
+
+printScreen :: String -> X ()
+printScreen s = inputPrompt defaultXPConfig "Print screen to file" ?+ (fPrintScreen s)
  
 -- The preferred terminal program, which is used in a binding below and by
 -- certain contrib modules.
@@ -24,7 +57,7 @@ myTerminal      = "urxvtc"
  
 -- Width of the window border in pixels.
 --
-myBorderWidth   = 1
+-- myBorderWidth   = 1
  
 -- modMask lets you specify which modkey you want to use. The default
 -- is mod1Mask ("left alt").  You may also consider using mod3Mask
@@ -57,13 +90,13 @@ myNumlockMask   = mod2Mask
 --
 -- > workspaces = ["web", "irc", "code" ] ++ map show [4..9]
 --
-myWorkspaces    = ["1:im","2:web","3:code","4","5","6","7","8","9", "10", "11", "12"]
+myWorkspaces    = ["1:im","2:web","3:code","4:pdf","5:vid"] ++ map show [6..12]
  
 -- Border colors for unfocused and focused windows, respectively.
 --
 myNormalBorderColor  = "#7c7c7c"
 myFocusedBorderColor = "#ffb6b0"
- 
+
 ------------------------------------------------------------------------
 -- Key bindings. Add, modify or remove key bindings here.
 --
@@ -72,14 +105,15 @@ myKeys conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $
     -- launch a terminal
     [ ((modMask, xK_Return), spawn $ XMonad.terminal conf)
 
-    -- launch gmrun
     , ((modMask .|. controlMask, xK_l     ), spawn "xscreensaver-command -lock")
 
+    -- launch scrot (e.g take a screenshot
+    , ((0, xK_Print                 ), printScreen scrot)
+    , ((modMask, xK_Print                 ), printScreen scrotWindow)
+
     -- launch dmenu
-    , ((modMask,               xK_p     ), spawn "exe=`dmenu_path | ~/bin/dmenu` && eval \"exec $exe\"")
- 
-    -- launch gmrun
-    , ((modMask .|. shiftMask, xK_p     ), spawn "gmrun")
+    , ((modMask,               xK_p     ), spawn "exe=`~/bin/dmenu_path | /home/masse/.cabal/bin/yeganesh` && eval \"exec $exe\"")
+    -- , ((modMask,               xK_p     ), spawn "exe=`~/bin/dmenu_path | /usr/bin/dmenu -fn '-*-terminus-*-r-normal-*-*-120-*-*-*-*-iso8859-*' -nf '#FFFFFF' -sb '#7C7C7C' -sf '#CEFFAC'` && eval \"exec $exe\"")
  
     -- close focused window 
     , ((modMask .|. shiftMask, xK_c     ), kill)
@@ -129,9 +163,6 @@ myKeys conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $
     -- Deincrement the number of windows in the master area
     , ((modMask              , xK_period), sendMessage (IncMasterN (-1)))
  
-    -- toggle the status bar gap
-    -- TODO, update this binding with avoidStruts , ((modMask              , xK_b     ),
- 
     -- Quit xmonad
     , ((modMask .|. shiftMask, xK_q     ), io (exitWith ExitSuccess))
  
@@ -147,15 +178,6 @@ myKeys conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $
     [((m .|. modMask, k), windows $ f i)
         | (i, k) <- zip (XMonad.workspaces conf) [xK_F1 .. xK_F12]
         , (f, m) <- [(W.greedyView, 0), (W.shift, shiftMask)]]
-    ++
- 
-    --
-    -- mod-{w,e,r}, Switch to physical/Xinerama screens 1, 2, or 3
-    -- mod-shift-{w,e,r}, Move client to screen 1, 2, or 3
-    --
-    [((m .|. modMask, key), screenWorkspace sc >>= flip whenJust (windows . f))
-        | (key, sc) <- zip [xK_w, xK_e, xK_r] [0..]
-        , (f, m) <- [(W.view, 0), (W.shift, shiftMask)]]
  
  
 ------------------------------------------------------------------------
@@ -166,13 +188,8 @@ myMouseBindings (XConfig {XMonad.modMask = modMask}) = M.fromList $
     -- mod-button1, Set the window to floating mode and move by dragging
     [ ((modMask, button1), (\w -> focus w >> mouseMoveWindow w))
  
-    -- mod-button2, Raise the window to the top of the stack
-    , ((modMask, button2), (\w -> focus w >> windows W.swapMaster))
- 
-    -- mod-button3, Set the window to floating mode and resize by dragging
-    , ((modMask, button3), (\w -> focus w >> mouseResizeWindow w))
- 
-    -- you may also bind events to the mouse scroll wheel (button4 and button5)
+    -- mod-button2, Set the window to floating mode and resize by dragging
+    , ((modMask, button2), (\w -> focus w >> mouseResizeWindow w))
     ]
  
 ------------------------------------------------------------------------
@@ -186,14 +203,18 @@ myMouseBindings (XConfig {XMonad.modMask = modMask}) = M.fromList $
 -- The available layouts.  Note that each layout is separated by |||,
 -- which denotes layout choice.
 --
-myTabConfig = defaultTheme {   activeBorderColor = "#7C7C7C"
-                             , activeTextColor = "#CEFFAC"
-                             , activeColor = "#000000"
-                             , inactiveBorderColor = "#7C7C7C"
-                             , inactiveTextColor = "#EEEEEE"
-                             , inactiveColor = "#000000" }
-myLayout = avoidStruts (tiled ||| Mirror tiled ||| tabbed shrinkText myTabConfig ||| Full ||| spiral (6/7))
+myTabConfig = defaultTheme {   activeBorderColor = myHighlightedFgColor
+                             , activeTextColor = myFgColor
+                             , activeColor = myBgColor
+			     , fontName = myFont
+                             , inactiveBorderColor = myInactiveBorderColor
+                             , inactiveTextColor = myInactiveFgColor
+                             , inactiveColor = myInactiveBorderColor 
+			   }
+myLayout = onWorkspace "4:pdf" pdfLayout $ defLayout
   where
+     pdfLayout = avoidStruts $ tabbed shrinkText myTabConfig
+     defLayout = avoidStruts (tiled ||| Mirror tiled ||| tabbed shrinkText myTabConfig ||| Full)
      -- default tiling algorithm partitions the screen into two panes
      tiled   = Tall nmaster delta ratio
  
@@ -224,59 +245,48 @@ myLayout = avoidStruts (tiled ||| Mirror tiled ||| tabbed shrinkText myTabConfig
 myManageHook = composeAll
     [ className =? "MPlayer"        --> doFloat
     , className =? "Smplayer"       --> doFloat
-    , className =? "Psx.real"       --> doFloat
     , className =? "Gimp"           --> doFloat
-    , className =? "Galculator"     --> doFloat
-    , resource  =? "Komodo_find2"   --> doFloat
-    , resource  =? "compose"        --> doFloat
-    , className =? "Chromium"       --> doShift "2:web"
-    , className =? "Gvim"           --> doShift "3:code"
+    , className =? "Firefox"       --> doShift "2:web"
+    , className =? "Gvim"       --> doShift "3:code"
+    , className =? "Evince"       --> doShift "4:pdf"
+    , className =? "Kpdf"       --> doShift "4:pdf"
     , resource  =? "desktop_window" --> doIgnore
-    , resource  =? "kdesktop"       --> doIgnore ]
+    , resource  =? "kdesktop"       --> doIgnore 
+    ]
  
 -- Whether focus follows the mouse pointer.
 myFocusFollowsMouse :: Bool
-myFocusFollowsMouse = True
+myFocusFollowsMouse = False -- Not good with touchpad
  
- 
-------------------------------------------------------------------------
--- Status bars and logging
- 
--- Perform an arbitrary action on each internal state change or X event.
--- See the 'DynamicLog' extension for examples.
---
--- To emulate dwm's status bar
---
--- > logHook = dynamicLogDzen
---
- 
-------------------------------------------------------------------------
--- Startup hook
- 
--- Perform an arbitrary action each time xmonad starts or is restarted
--- with mod-q.  Used by, e.g., XMonad.Layout.PerWorkspace to initialize
--- per-workspace layout choices.
---
--- By default, do nothing.
-myStartupHook = return ()
+data NotifyUrgencyHook = NotifyUrgencyHook deriving (Read, Show)
+
+instance UrgencyHook NotifyUrgencyHook where
+  urgencyHook _ w = do
+    name <- getName w
+    ws <- gets windowset
+    whenJust (W.findTag w ws) (notify name)
+    where notify n w = safeSpawn "notify-send" $ ["XMonad", show n ++ " requests your attention on " ++ show w]
  
 ------------------------------------------------------------------------
 -- Now run xmonad with all the defaults we set up.
  
+xmobarPath = "/usr/local/bin/xmobar ~/.xmonad/xmobar"
+xmobarDevelPath = "/home/masse/git/xmobar/dist/build/xmobar/xmobar ~/.xmonad/xmobar"
 -- Run xmonad with the settings you specify. No need to modify this.
 --
 main = do
-	xmproc <- spawnPipe "/usr/local/bin/xmobar ~/.xmonad/xmobar"
-	xmonad $ defaults {
-		logHook            = dynamicLogWithPP $ xmobarPP {
+        xmproc <- spawnPipe xmobarPath
+        xmonad $ withUrgencyHook NotifyUrgencyHook defaults {
+                logHook            = dynamicLogWithPP $ xmobarPP {
                                 ppOutput = hPutStrLn xmproc
                                 , ppTitle = xmobarColor "#FFB6B0" "" . shorten 100
                                 , ppCurrent = xmobarColor "#CEFFAC" ""
                                 , ppSep = "   "
+				, ppUrgent = xmobarColor myUrgencyHintFgColor myUrgencyHintBgColor . xmobarStrip
                                 }
-		, manageHook = manageDocks <+> myManageHook
-		, startupHook = setWMName "LG3D"
-	}
+                , manageHook = manageDocks <+> myManageHook
+                , startupHook = setWMName "LG3D"
+        }
  
 -- A structure containing your configuration settings, overriding
 -- fields in the default config. Any you don't override, will 
@@ -292,15 +302,13 @@ defaults = defaultConfig {
         modMask            = myModMask,
         numlockMask        = myNumlockMask,
         workspaces         = myWorkspaces,
-        normalBorderColor  = myNormalBorderColor,
-        focusedBorderColor = myFocusedBorderColor,
+        normalBorderColor  = myInactiveBorderColor,
+        focusedBorderColor = myActiveBorderColor,
  
       -- key bindings
         keys               = myKeys,
         mouseBindings      = myMouseBindings,
  
       -- hooks, layouts
-        layoutHook         = smartBorders $ myLayout,
-        manageHook         = myManageHook,
-        startupHook        = myStartupHook
+        layoutHook         = smartBorders $ myLayout
     }
